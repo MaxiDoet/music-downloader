@@ -36,7 +36,8 @@ except:
     print("%sNo url provided!%s" % (colorama.Fore.RED, colorama.Fore.RESET))
     exit(-1)
 
-if input_url.find("playlist") == 0:
+if input_url.find("playlist?list="):
     download_playlist(input_url)
 else:
+    print(input_url.find("playlist"))
     download_mp3(YouTube(input_url))
