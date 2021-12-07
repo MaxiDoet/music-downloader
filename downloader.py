@@ -3,30 +3,41 @@ from ffmpeg.nodes import output_operator
 from pytube import YouTube, Playlist
 import ffmpeg
 import sys, os, pathlib, re
+from halo import Halo
 
 def download_mp3(video : YouTube, index=1, playlist_length=1):
+    spinner = Halo(text='%d/%d Fetching' % (index, playlist_length), spinner='dots')
+
+    spinner.start()
     stream = video.streams.get_audio_only()
+    spinner.stop()
+
+    spinner.text = "%d/%d Downloading" % (index, playlist_length)
+    spinner.start()
     output_file = stream.download()
+    spinner.stop()
 
-    print("[%sdownload%s] %d/%d %s%s%s" % (colorama.Fore.BLUE, colorama.Fore.RESET, index, playlist_length, colorama.Fore.GREEN, video.title, colorama.Fore.RESET))
-
-    #os.rename(output_file, re.sub(r'[\\/*?:"<>|]',"", video.title + ".mp3"))
+    spinner.text = "%d/%d Converting" % (index, playlist_length)
+    spinner.start()
     new_filename = re.sub(r'[\\/*?:"<>|]',"", video.title + ".mp3")
-    converted_stream = ffmpeg.input(output_file).output(new_filename).run()
+    converted_stream = ffmpeg.input(output_file).output("files/" + new_filename).run(quiet=True)
     os.remove(output_file)
 
-def download_playlist(playlist_url):
-    playlist = Playlist(playlist_url)
+    spinner.stop()
+    spinner.succeed("%d/%d %s" % (index, playlist_length, video.title))
 
-    print("[%splaylist%s] Title: %s%s%s" % (colorama.Fore.BLUE, colorama.Fore.RESET, colorama.Fore.GREEN, playlist.title, colorama.Fore.RESET))
-    print("[%splaylist%s] Length: %s%d%s" % (colorama.Fore.BLUE, colorama.Fore.RESET, colorama.Fore.GREEN, len(playlist), colorama.Fore.RESET))
+def download_playlist(playlist_url):
+    spinner = Halo(text='Fetching', spinner='dots')
+
+    spinner.start()
+    playlist = Playlist(playlist_url)
+    spinner.stop()
+    spinner.succeed("%s" % (playlist.title))
 
     index = 1
     for video in playlist.videos:
         download_mp3(video, index, playlist.length)
         index+=1
-
-    print("[%splaylist%s] %sDone%s" % (colorama.Fore.BLUE, colorama.Fore.RESET, colorama.Fore.GREEN, colorama.Fore.RESET))
 
 # Init color console
 colorama.init()
