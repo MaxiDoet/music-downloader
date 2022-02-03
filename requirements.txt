@@ -1,1 +1,6 @@
-pytube==11.0.2
+git+https://github.com/MaxiDoet/pytube
+colorama==0.4.4
+ffmpeg-python==0.2.0
+spotipy==2.19.0
+swspotify==1.2.2
+spinners==0.0.24

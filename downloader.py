@@ -9,11 +9,25 @@ import sys, os, pathlib, re
 from halo import Halo
 import json
 
-# Spotify credentials
-client_id = "70cc9baf7e154688a8d6ed961471e595"
-client_secret = "1c8dd29b8b3d4ed19f781b0bd639773b"
+# Try to load config
+config = {}
+try:
+    config_fp = open("config.json", "r")
+    config = json.load(config_fp)
+except:
+    # Create new config
+    client_id_input = input("Spotify Client ID: ")
+    client_secret_input = input("Spotify Client Secret: ")
+    config = {
+        "client_id": client_id_input,
+        "client_secret": client_secret_input
+    }
+    config_fp = open("config.json", "w+")
+    config_fp.write(json.dumps(config))
 
-sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret))
+# Spotify credentials
+
+sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=config["client_id"], client_secret=["client_secret"]))
 
 def download_mp3(video : YouTube, index=1, playlist_length=1):
     spinner = Halo(text='%d/%d Fetching' % (index, playlist_length), spinner='dots')
