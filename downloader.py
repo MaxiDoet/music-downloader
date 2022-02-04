@@ -1,3 +1,4 @@
+import argparse
 from turtle import color
 import colorama
 from ffmpeg.nodes import output_operator
@@ -26,11 +27,26 @@ except:
     config_fp.write(json.dumps(config))
 
 # Spotify credentials
+sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=config["client_id"], client_secret=config["client_secret"]))
 
-sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=config["client_id"], client_secret=["client_secret"]))
+# Parse arguments
+parser = argparse.ArgumentParser(description='Youtube/Spotify downloader.')
+parser.add_argument("--skip", help="Skip download if file exists", action=argparse.BooleanOptionalAction)
+parser.add_argument("url", help="URL to download")
+args = parser.parse_args()
 
 def download_mp3(video : YouTube, index=1, playlist_length=1):
+    filename = re.sub(r'[\\/*?:"<>|]',"", video.title + ".mp3")
+    filepath = "files/" + filename
+
     spinner = Halo(text='%d/%d Fetching' % (index, playlist_length), spinner='dots')
+
+    if os.path.exists(filepath):
+        if args.skip:
+            spinner.warn("%d/%d %s" % (index, playlist_length, video.title))
+            return
+        else:
+            os.remove(filepath)
 
     spinner.start()
     stream = video.streams.get_audio_only()
@@ -43,8 +59,7 @@ def download_mp3(video : YouTube, index=1, playlist_length=1):
 
     spinner.text = "%d/%d Converting" % (index, playlist_length)
     spinner.start()
-    new_filename = re.sub(r'[\\/*?:"<>|]',"", video.title + ".mp3")
-    converted_stream = ffmpeg.input(output_file).output("files/" + new_filename).run(quiet=True)
+    converted_stream = ffmpeg.input(output_file).output(filepath).run(quiet=True)
     os.remove(output_file)
 
     spinner.stop()
@@ -68,7 +83,7 @@ def find_youtube_by_title(title):
     return results[0]
     
 def download_spotify_playlist(url):
-    playlist = sp.playlist(url)
+    playlist = sp.playlist(str(url))
     tracks = playlist["tracks"]["items"]
 
     for i in range(len(tracks)):
@@ -81,11 +96,8 @@ def download_spotify_playlist(url):
 
 # Init color console
 colorama.init()
-try:
-    input_url = sys.argv[1]
-except:
-    print("%sNo url provided!%s" % (colorama.Fore.RED, colorama.Fore.RESET))
-    exit(-1)
+
+input_url = args.url
 
 spinner = Halo(text='Detecting link type', spinner='dots')
 spinner.start()
