@@ -35,11 +35,14 @@ parser.add_argument("--skip", help="Skip download if file exists", action=argpar
 parser.add_argument("url", help="URL to download")
 args = parser.parse_args()
 
-def download_mp3(video : YouTube, index=1, playlist_length=1):
+def download_mp3(video : YouTube, folder, index=1, playlist_length=1):
     filename = re.sub(r'[\\/*?:"<>|]',"", video.title + ".mp3")
-    filepath = "files/" + filename
+    filepath = "files/" + folder + "/" + filename
 
     spinner = Halo(text='%d/%d Fetching' % (index, playlist_length), spinner='dots')
+
+    if not os.path.exists("files/" + folder):
+        os.mkdir("files/" + folder)
 
     if os.path.exists(filepath):
         if args.skip:
@@ -75,7 +78,7 @@ def download_playlist(playlist_url):
 
     index = 1
     for video in playlist.videos:
-        download_mp3(video, index, playlist.length)
+        download_mp3(video, playlist.title, index, playlist.length)
         index+=1
 
 def find_youtube_by_title(title):
@@ -84,6 +87,8 @@ def find_youtube_by_title(title):
     
 def download_spotify_playlist(url):
     playlist = sp.playlist(str(url))
+    playlist_name = playlist["name"]    
+
     tracks = playlist["tracks"]["items"]
 
     for i in range(len(tracks)):
@@ -92,7 +97,7 @@ def download_spotify_playlist(url):
         query = track["name"] + " " + track["artists"][0]["name"]
 
         vid = find_youtube_by_title(query)
-        download_mp3(vid, i+1, len(tracks))
+        download_mp3(vid, playlist_name, i+1, len(tracks))
 
 # Init color console
 colorama.init()
@@ -108,7 +113,7 @@ if "youtube.com" in input_url:
         download_playlist(input_url)
     else:
         spinner.succeed("Youtube Audio")
-        download_mp3(YouTube(input_url))  
+        download_mp3(YouTube(input_url), "")  
 elif "spotify.com" in input_url:
     spinner.succeed("Spotify Playlist")
     download_spotify_playlist(input_url)
