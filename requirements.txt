@@ -1,4 +1,4 @@
-git+https://github.com/MaxiDoet/pytube
+git+https://github.com/sssiong/pytube
 colorama==0.4.4
 ffmpeg-python==0.2.0
 spotipy==2.19.0
