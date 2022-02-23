@@ -62,7 +62,12 @@ def download_mp3(video : YouTube, folder, index=1, playlist_length=1):
 
     spinner.text = "%d/%d Converting" % (index, playlist_length)
     spinner.start()
-    converted_stream = ffmpeg.input(output_file).output(filepath).run(quiet=True)
+    try:
+        converted_stream = ffmpeg.input(output_file).output(filepath).run(quiet=True)
+    except ffmpeg._run.Error:
+        spinner.fail("%d/%d FFmpeg error" % (index, playlist_length))
+        return
+
     os.remove(output_file)
 
     spinner.stop()
@@ -104,7 +109,7 @@ colorama.init()
 
 input_url = args.url
 
-spinner = Halo(text='Detecting link type', spinner='dots')
+spinner = Halo(text='Please wait', spinner='dots')
 spinner.start()
 
 if "youtube.com" in input_url:
@@ -112,7 +117,7 @@ if "youtube.com" in input_url:
         spinner.succeed("Youtube Playlist")
         download_playlist(input_url)
     else:
-        spinner.succeed("Youtube Audio")
+        spinner.succeed("Youtube Track")
         download_mp3(YouTube(input_url), "")  
 elif "spotify.com" in input_url:
     spinner.succeed("Spotify Playlist")
