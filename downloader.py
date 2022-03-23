@@ -2,6 +2,8 @@ import argparse
 from turtle import color
 import colorama
 from ffmpeg.nodes import output_operator
+from numpy import source
+from pip import List
 from pytube import YouTube, Playlist, Search
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
@@ -31,11 +33,13 @@ sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_
 
 # Parse arguments
 parser = argparse.ArgumentParser(description='Youtube/Spotify downloader.')
-parser.add_argument("--skip", help="Skip download if file exists", action=argparse.BooleanOptionalAction)
+parser.add_argument("-r", help="Replace files if they already exist", action=argparse.BooleanOptionalAction)
 parser.add_argument("url", help="URL to download")
 args = parser.parse_args()
 
-def download_mp3(video : YouTube, folder, index=1, playlist_length=1):
+SOURCE_TYPES = ["YouTube", "Spotify"]
+
+def download_youtube_video(video : YouTube, folder, index=1, playlist_length=1):
     filename = re.sub(r'[\\/*?:"<>|]',"", video.title + ".mp3")
     filepath = "files/" + folder + "/" + filename
 
@@ -45,7 +49,7 @@ def download_mp3(video : YouTube, folder, index=1, playlist_length=1):
         os.mkdir("files/" + folder)
 
     if os.path.exists(filepath):
-        if args.skip:
+        if not args.r:
             spinner.warn("%d/%d %s" % (index, playlist_length, video.title))
             return
         else:
@@ -73,28 +77,68 @@ def download_mp3(video : YouTube, folder, index=1, playlist_length=1):
     spinner.stop()
     spinner.succeed("%d/%d %s" % (index, playlist_length, video.title))
 
-def download_playlist(playlist_url):
-    spinner = Halo(text='Fetching', spinner='dots')
+class SourceInfo:
+    def __init__(self, single, type, title, author, trackCount, tracks):
+        self.single = single
+        self.type = type
+        self.title = title
+        self.author = author
+        self.trackCount = trackCount
+        self.tracks = tracks
 
-    spinner.start()
-    playlist = Playlist(playlist_url)
-    spinner.stop()
-    spinner.succeed("%s" % (playlist.title))
+    def __str__(self) -> str:
+        return ("Source: %s\nTitle: %s\nAuthor: %s\nTracks: %d\n" % (SOURCE_TYPES[self.type], self.title, self.author, self.trackCount))
 
-    index = 1
-    for video in playlist.videos:
-        download_mp3(video, playlist.title, index, playlist.length)
-        index+=1
+    def download(self):
+        if self.type == 0:
+            if (self.single):
+                download_youtube_video(self.tracks[0], "", 1, 1)
+            else:
+                for i in range(len(self.tracks)):
+                    download_youtube_video(self.tracks[i], self.title, i+1, self.trackCount)
 
-def find_youtube_by_title(title):
+        elif self.type == 1:
+            for i in range(len(self.tracks)):
+                download_youtube_video(self.tracks[i], self.title, i+1, self.trackCount)
+
+def fetch_youtube_video(url) -> SourceInfo:
+    video = YouTube(url)
+    return SourceInfo(True, 0, video.title, video.author, 1, [url])
+
+def fetch_youtube_playlist(url) -> SourceInfo:
+    playlist = Playlist(url)
+    return SourceInfo(False, 0, playlist.title, "Unknown", len(playlist.video_urls), playlist.video_urls)
+
+def find_youtube_url_by_title(title):
     results = Search(title).results
     return results[0]
-    
+
+def fetch_spotify_playlist(url) -> SourceInfo:
+    playlist = sp.playlist(str(url))
+    tracks = playlist["tracks"]["items"]
+
+    # Find youtube videos
+    videos = []
+
+    spinner = Halo(text='Fetching Tracks', spinner='dots')
+    spinner.start()
+
+    for i in range(len(tracks)):
+        track_id = tracks[i]["track"]["id"]
+        track = sp.track(track_id)
+        videos.append(find_youtube_url_by_title(track["name"] + " " + track["artists"][0]["name"]))
+
+    spinner.stop()
+
+    return SourceInfo(False, 1, playlist["name"], playlist["owner"]["display_name"], len(videos), videos)
+
 def download_spotify_playlist(url):
     playlist = sp.playlist(str(url))
     playlist_name = playlist["name"]    
 
     tracks = playlist["tracks"]["items"]
+
+    print("Title: %s\nTracks: %d" % (playlist_name, len(tracks)))
 
     for i in range(len(tracks)):
         track_id = tracks[i]["track"]["id"]
@@ -102,7 +146,7 @@ def download_spotify_playlist(url):
         query = track["name"] + " " + track["artists"][0]["name"]
 
         vid = find_youtube_by_title(query)
-        download_mp3(vid, playlist_name, i+1, len(tracks))
+        download_video(vid, playlist_name, i+1, len(tracks))
 
 # Init color console
 colorama.init()
@@ -112,13 +156,21 @@ input_url = args.url
 spinner = Halo(text='Please wait', spinner='dots')
 spinner.start()
 
+# Fetch playlist
 if "youtube.com" in input_url:
+    spinner.stop()
+
     if "youtube.com/playlist?list" in input_url:
-        spinner.succeed("Youtube Playlist")
-        download_playlist(input_url)
+        source_info = fetch_youtube_playlist(input_url)
     else:
-        spinner.succeed("Youtube Track")
-        download_mp3(YouTube(input_url), "")  
+        source_info = fetch_youtube_video(input_url)
+        
 elif "spotify.com" in input_url:
-    spinner.succeed("Spotify Playlist")
-    download_spotify_playlist(input_url)
+    spinner.stop()
+    source_info = fetch_spotify_playlist(input_url)
+else:
+    print("Unknown source type!")
+
+print(source_info)
+
+source_info.download()
