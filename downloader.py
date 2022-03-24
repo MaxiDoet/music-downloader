@@ -11,6 +11,7 @@ import ffmpeg
 import sys, os, pathlib, re
 from halo import Halo
 import json
+from ytmusicapi import YTMusic
 
 # Try to load config
 config = {}
@@ -30,6 +31,8 @@ except:
 
 # Spotify credentials
 sp = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=config["client_id"], client_secret=config["client_secret"]))
+
+ytmusic = YTMusic()
 
 # Parse arguments
 parser = argparse.ArgumentParser(description='Youtube/Spotify downloader.')
@@ -78,16 +81,16 @@ def download_youtube_video(video : YouTube, folder, index=1, playlist_length=1):
     spinner.succeed("%d/%d %s" % (index, playlist_length, video.title))
 
 class SourceInfo:
-    def __init__(self, single, type, title, author, trackCount, tracks):
+    def __init__(self, single, type, title, owner, trackCount, tracks):
         self.single = single
         self.type = type
         self.title = title
-        self.author = author
+        self.owner = owner
         self.trackCount = trackCount
         self.tracks = tracks
 
     def __str__(self) -> str:
-        return ("Source: %s\nTitle: %s\nAuthor: %s\nTracks: %d\n" % (SOURCE_TYPES[self.type], self.title, self.author, self.trackCount))
+        return ("Source: %s\nTitle: %s\nOwner: %s\nTracks: %d\n" % (SOURCE_TYPES[self.type], self.title, self.owner, self.trackCount))
 
     def download(self):
         if self.type == 0:
@@ -103,15 +106,22 @@ class SourceInfo:
 
 def fetch_youtube_video(url) -> SourceInfo:
     video = YouTube(url)
-    return SourceInfo(True, 0, video.title, video.author, 1, [url])
+    return SourceInfo(True, 0, video.title, video.owner, 1, [url])
 
 def fetch_youtube_playlist(url) -> SourceInfo:
     playlist = Playlist(url)
-    return SourceInfo(False, 0, playlist.title, "Unknown", len(playlist.video_urls), playlist.video_urls)
+    return SourceInfo(False, 0, playlist.title, "Unknown", len(playlist.videos), playlist.videos)
 
-def find_youtube_url_by_title(title):
+def find_youtube_video(query):
+    """
     results = Search(title).results
     return results[0]
+    """
+
+    results = ytmusic.search(query)
+    top_result_id = results[0]["videoId"]
+    
+    return YouTube("https://youtube.com/watch?v=%s" % (top_result_id))
 
 def fetch_spotify_playlist(url) -> SourceInfo:
     playlist = sp.playlist(str(url))
@@ -126,27 +136,11 @@ def fetch_spotify_playlist(url) -> SourceInfo:
     for i in range(len(tracks)):
         track_id = tracks[i]["track"]["id"]
         track = sp.track(track_id)
-        videos.append(find_youtube_url_by_title(track["name"] + " " + track["artists"][0]["name"]))
+        videos.append(find_youtube_video(track["name"] + " " + track["artists"][0]["name"]))
 
     spinner.stop()
 
     return SourceInfo(False, 1, playlist["name"], playlist["owner"]["display_name"], len(videos), videos)
-
-def download_spotify_playlist(url):
-    playlist = sp.playlist(str(url))
-    playlist_name = playlist["name"]    
-
-    tracks = playlist["tracks"]["items"]
-
-    print("Title: %s\nTracks: %d" % (playlist_name, len(tracks)))
-
-    for i in range(len(tracks)):
-        track_id = tracks[i]["track"]["id"]
-        track = sp.track(track_id)
-        query = track["name"] + " " + track["artists"][0]["name"]
-
-        vid = find_youtube_by_title(query)
-        download_video(vid, playlist_name, i+1, len(tracks))
 
 # Init color console
 colorama.init()
