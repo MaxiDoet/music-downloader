@@ -106,7 +106,7 @@ class SourceInfo:
 
 def fetch_youtube_video(url) -> SourceInfo:
     video = YouTube(url)
-    return SourceInfo(True, 0, video.title, video.owner, 1, [url])
+    return SourceInfo(True, 0, video.title, video.author, 1, [YouTube(url)])
 
 def fetch_youtube_playlist(url) -> SourceInfo:
     playlist = Playlist(url)
@@ -118,10 +118,20 @@ def find_youtube_video(query):
     return results[0]
     """
 
-    results = ytmusic.search(query)
-    top_result_id = results[0]["videoId"]
-    
-    return YouTube("https://youtube.com/watch?v=%s" % (top_result_id))
+    results = ytmusic.search(query, filter="songs")
+    result_id = ""
+
+    for i in range(len(results)):
+        category = results[i]["category"]
+        result_type = results[i]["resultType"]
+
+        if category == "Songs" and result_type == "song":
+            result_id = results[i]["videoId"]
+            return YouTube("https://youtube.com/watch?v=%s" % (result_id))
+        else:
+            pass
+
+    return YouTube("https://youtube.com/watch?v=%s" % (result_id))
 
 def fetch_spotify_playlist(url) -> SourceInfo:
     playlist = sp.playlist(str(url))
