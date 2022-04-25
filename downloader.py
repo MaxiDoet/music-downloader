@@ -90,7 +90,11 @@ class SourceInfo:
         self.tracks = tracks
 
     def __str__(self) -> str:
-        return ("Source: %s\nTitle: %s\nOwner: %s\nTracks: %d\n" % (SOURCE_TYPES[self.type], self.title, self.owner, self.trackCount))
+        if (self.single):
+            return ("Source: %s\nTitle: %s\nOwner: %s\n" % (SOURCE_TYPES[self.type], self.title, self.owner))
+        else:
+            return ("Source: %s\nTitle: %s\nOwner: %s\nTracks: %d\n" % (SOURCE_TYPES[self.type], self.title, self.owner, self.trackCount))
+        
 
     def download(self):
         if self.type == 0:
@@ -152,6 +156,14 @@ def fetch_spotify_playlist(url) -> SourceInfo:
 
     return SourceInfo(False, 1, playlist["name"], playlist["owner"]["display_name"], len(videos), videos)
 
+def fetch_youtube_search(query) -> SourceInfo:
+    video = find_youtube_video(query)
+
+    if not video:
+        return
+
+    return SourceInfo(True, 0, video.title, video.author, 1, [video])
+
 # Init color console
 colorama.init()
 
@@ -173,7 +185,8 @@ elif "spotify.com" in input_url:
     spinner.stop()
     source_info = fetch_spotify_playlist(input_url)
 else:
-    print("Unknown source type!")
+    spinner.stop()
+    source_info = fetch_youtube_search(input_url)
 
 print(source_info)
 
